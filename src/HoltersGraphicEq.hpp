@@ -45,7 +45,7 @@ DOI: 10.1109/LSP.2014.2301557 (Available as a post-print)
 #include <complex>
 #include <cmath>
 #include <cassert>
-
+#include <cstdint>
 namespace toob::holters_graphic_eq
 {
 
