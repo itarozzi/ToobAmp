@@ -38,6 +38,10 @@ using namespace toob;
 static constexpr float TRANSITION_TIME_SEC = 0.003f;
 static constexpr float TRIGGER_LEAD_TIME = 0.001f;
 static constexpr float TRIGGER_FADE_IN_TIME = 0.001f;
+static constexpr float CLICK_DURATION_SEC = 0.025f;
+static constexpr float CLICK_AMPLITUDE = 0.12f;
+static constexpr float CLICK_FREQUENCY = 1200.0f;
+static constexpr float ACCENT_CLICK_FREQUENCY = 1800.0f;
 
 
 static REGISTRATION_DECLARATION PluginRegistration<ToobLooperFour> registration(ToobLooperFour::URI);
@@ -785,9 +789,56 @@ void ToobLooperOne::Run(uint32_t n_samples)
         out.Get(),
         outR.Get());
 
+    AddBeatClick(n_samples, out.Get(), outR.Get());
+
     this->current_plugin_sample += n_samples;
 
     UpdateOutputControls(n_samples);
+}
+
+void ToobLooperOne::AddBeatClick(uint32_t n_samples, float *outL, float *outR)
+{
+    if (!has_time_zero)
+    {
+        return;
+    }
+
+    const size_t samplesPerBeat = GetSamplesPerBeat();
+    const size_t clickSamples = std::min(
+        static_cast<size_t>(sampleRate * CLICK_DURATION_SEC),
+        samplesPerBeat);
+    if (clickSamples == 0)
+    {
+        return;
+    }
+
+    const size_t beats = beatsPerBar(getTimesig());
+    const float outputLevel = getOutputLevel();
+    for (uint32_t i = 0; i < n_samples; ++i)
+    {
+        const uint64_t sample = current_plugin_sample + i;
+        if (sample < time_zero)
+        {
+            continue;
+        }
+
+        const uint64_t clockSample = sample - time_zero;
+        const size_t beatSample = clockSample % samplesPerBeat;
+        if (beatSample >= clickSamples)
+        {
+            continue;
+        }
+
+        const bool accent = (clockSample / samplesPerBeat) % beats == 0;
+        const float frequency = accent ? ACCENT_CLICK_FREQUENCY : CLICK_FREQUENCY;
+        const float time = static_cast<float>(beatSample / sampleRate);
+        const float envelope = std::exp(-160.0f * time);
+        const float click = CLICK_AMPLITUDE * outputLevel * envelope
+            * std::sin(2.0f * std::numbers::pi_v<float> * frequency * time);
+
+        outL[i] += click;
+        outR[i] += click;
+    }
 }
 
 void ToobLooperEngine::Mix(

@@ -374,6 +374,7 @@ protected:
 	void OnSingleTap();
 	void OnLongPress();
 	void OnLongLongPress();
+	void AddBeatClick(uint32_t n_samples, float *outL, float *outR);
 private:
 	bool controlDown = false;
 	enum class PluginState {
